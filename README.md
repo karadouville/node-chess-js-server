@@ -1,6 +1,6 @@
 # Node.js chess-js REST API server
 
-server.js requires node v4.4.7 (use `nvm` to use specific node version in a virtual environment)
+server.js requires node v4.4.7 (use `nvm` (https://github.com/creationix/nvm) to use specific node version in a virtual environment)
 
 Dependencies:
 
@@ -8,7 +8,12 @@ Dependencies:
 * epxress: https://expressjs.com/
 * stockfish: https://stockfishchess.org/
 
-Install instructions for server:
+Install node using `nvm` (see above):
+
+1. `nvm install 4.4.7`
+2. `nvm use 4.4.7`
+
+Install dependencies and start server:
 
 1. `npm install`
 2. `npm start` (can also use `node server.js`)
