@@ -132,7 +132,8 @@ app.get('/game/:id/game-over', validate_gid, function(req, res) {
 // GET game result (win, draw, etc.)
 app.get('/game/:id/result', validate_gid, function(req, res) {
     var game_id = req.params.id;
-    res.status(200).json({result: games[game_id].result});
+    var result = games[game_id].result ? games[game_id].result : null;
+    res.status(200).json({result: result});
 });
 
 // GET player object of player who's turn it is
@@ -154,7 +155,7 @@ app.get('/game/:id/last-move', validate_gid, function(req, res) {
     var history = games[game_id].game.history({verbose: true});
 
     if (history.length == 0) {
-        res.status(404).json({error: "no moves"});
+        res.status(200).json({error: "no moves"});
         return;
     }
 
@@ -165,7 +166,7 @@ app.get('/game/:id/last-move', validate_gid, function(req, res) {
 // GET game fen
 app.get('/game/:id/fen', validate_gid, function(req, res) {
     var game_id = req.params.id;
-    res.status(200).json(games[game_id].game.fen());
+    res.status(200).json({fen: games[game_id].game.fen()});
 });
 
 // POST move by player to game
@@ -491,6 +492,8 @@ var server = app.listen(3000, "0.0.0.0", function() {
     
     console_log("rest api server listening at http://{0}:{1}".format(host, port));
 });
+
+module.exports = server;
 
 /*
 var telnet_server = net.createServer(function(socket) {
