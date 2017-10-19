@@ -34,7 +34,7 @@ def make_best_move(gid, pid):
 game = {}
 game_id = ''
 player_id = ''
-games = requests.get('{}/games-needing-opponent'.format(server))
+games = requests.get('{}/games/needing-opponent'.format(server))
 if games.ok:
     if not games.json(): # if no game, create it
         game = post_json('{}/game'.format(server), {"player_type":"ai"})
@@ -77,4 +77,3 @@ if games.ok:
             print(turn.reason)
             exit()
         time.sleep(1)
-

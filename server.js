@@ -1,11 +1,11 @@
-var express = require('express');
-var bodyParser = require('body-parser');
-var app = express();
-var fs = require('fs');
-var Chess = require('./node_modules/chess.js/chess.js').Chess;
-var net = require('net');
-var crypto = require('crypto');
-var stockfish = require('./stockfish_wrapper.js');
+const express = require('express');
+const bodyParser = require('body-parser');
+const app = express();
+const fs = require('fs');
+const Chess = require('./node_modules/chess.js/chess.js').Chess;
+const net = require('net');
+const crypto = require('crypto');
+const stockfish = require('./stockfish_wrapper.js');
 
 app.use(bodyParser.json());
 app.set('json replacer', replacer);
@@ -14,8 +14,12 @@ app.set('json replacer', replacer);
 // GLOBALS (use db later)
 //-----------------------------------------------
 
-players = []; // currently not using
-games = {};
+var players = []; // currently not using
+var games = {};
+const DRAW = '1/2-1/2';
+const IN_PROGRESS = '*';
+const WHITE_WIN = '1-0';
+const BLACK_WIN = '0-1';
 
 //-----------------------------------------------
 // ROUTES
@@ -60,10 +64,10 @@ app.get('/', function(req, res) {
     }
 */
 app.post('/game', validate_create_game, function(req, res) {
-    player_type = req.body.player_type;
-    opponent_type = req.body.opponent_type; // optional, default human
+    var player_type = req.body.player_type;
+    var opponent_type = req.body.opponent_type; // optional, default human
     var chess = new Chess();
-    game = {id: gen_id()};
+    var game = {id: gen_id()};
     game.created  = Date.now();
     game.game = chess;
     game.player1 = create_player(player_type, 'w');
@@ -78,13 +82,16 @@ app.post('/game', validate_create_game, function(req, res) {
 
 // GET game
 app.get('/game/:id', validate_gid, function(req, res) {
-    game_id = req.params.id;
+    var game_id = req.params.id;
     res.status(200).json(games[game_id]);
 });
 
 // DELETE game
+// TODO: remove and add functionality for server to remove stale
+// or unfinished games and archive completed games
+// (clients shouldn't be deleting games, this is just for testing)
 app.delete('/game/:id', validate_gid, function(req, res) {
-    game_id = req.params.id;
+    var game_id = req.params.id;
     delete games[game_id];
     res.sendStatus(200);
     console.log("game %s deleted", game_id);
@@ -101,9 +108,9 @@ app.delete('/game/:id', validate_gid, function(req, res) {
     }
 */
 app.post('/game/:id/join', validate_gid, validate_join_game, function(req, res) {
-    game_id = req.params.id;
-    player_type = req.body.player_type;
-    game = games[game_id];
+    var game_id = req.params.id;
+    var player_type = req.body.player_type;
+    var game = games[game_id];
     if (!game.player2) {
         player2_id = gen_id();
         game.player2 = create_player(player_type, 'b');
@@ -118,24 +125,24 @@ app.post('/game/:id/join', validate_gid, validate_join_game, function(req, res) 
 
 // GET check if game over
 app.get('/game/:id/game-over', validate_gid, function(req, res) {
-    game_id = req.params.id;
+    var game_id = req.params.id;
     res.status(200).json({game_over: games[game_id].game.game_over()});
 });
 
 // GET game result (win, draw, etc.)
 app.get('/game/:id/result', validate_gid, function(req, res) {
-    game_id = req.params.id;
+    var game_id = req.params.id;
     res.status(200).json({result: games[game_id].result});
 });
 
 // GET player object of player who's turn it is
 app.get('/game/:id/turn', validate_gid, validate_two_players, function(req, res) {
-    game_id = req.params.id;
+    var game_id = req.params.id;
 
-    chess = games[game_id].game;
-    player1 = games[game_id].player1;
-    player2 = games[game_id].player2;
-    turn = player1;
+    var chess = games[game_id].game;
+    var player1 = games[game_id].player1;
+    var player2 = games[game_id].player2;
+    var turn = player1;
     if (player2.color === chess.turn())
         turn = player2;
     res.status(200).json(turn);
@@ -143,21 +150,21 @@ app.get('/game/:id/turn', validate_gid, validate_two_players, function(req, res)
 
 // GET last move (in long algebraic notation)
 app.get('/game/:id/last-move', validate_gid, function(req, res) {
-    game_id = req.params.id;
-    history = games[game_id].game.history({verbose: true});
+    var game_id = req.params.id;
+    var history = games[game_id].game.history({verbose: true});
 
     if (history.length == 0) {
         res.status(404).json({error: "no moves"});
         return;
     }
 
-    last_move = history[history.length-1];
+    var last_move = history[history.length-1];
     res.status(200).json({last_move: last_move.from + last_move.to});
 });
 
 // GET game fen
 app.get('/game/:id/fen', validate_gid, function(req, res) {
-    game_id = req.params.id;
+    var game_id = req.params.id;
     res.status(200).json(games[game_id].game.fen());
 });
 
@@ -165,13 +172,13 @@ app.get('/game/:id/fen', validate_gid, function(req, res) {
 // post body should contain json move
 app.post('/game/:id/player/:pid/move', validate_gid, validate_pid, 
          validate_two_players, validate_move, function(req, res) {
-    game_id = req.params.id;
-    player_id = req.params.pid;
+    var game_id = req.params.id;
+    var player_id = req.params.pid;
 
-    chess =   games[game_id].game;
-    player1 = games[game_id].player1;
-    player2 = games[game_id].player2;
-    color = player1.id === player_id ? player1.color : player2.color;
+    var chess =   games[game_id].game;
+    var player1 = games[game_id].player1;
+    var player2 = games[game_id].player2;
+    var color = player1.id === player_id ? player1.color : player2.color;
 
     if (chess.game_over()) {
         res.status(200).json({error: "game is over"});
@@ -179,11 +186,11 @@ app.post('/game/:id/player/:pid/move', validate_gid, validate_pid,
     }
 
     if (chess.turn() == color) {
-        move = chess.move(req.body.move, {sloppy: true}); // need sloppy for algebraic notation
+        var move = chess.move(req.body.move, {sloppy: true}); // need sloppy for algebraic notation
         process_end_game(games[game_id]);
         if (move) {
             res.status(200).json(move); // send back move
-            game.last_move = Date.now();
+            games[game_id].last_move = Date.now();
             console.log(chess.ascii());
             return;
         }
@@ -198,13 +205,13 @@ app.post('/game/:id/player/:pid/move', validate_gid, validate_pid,
 // GET best move for player in game
 app.get('/game/:id/player/:pid/bestmove', validate_gid, validate_pid, 
         validate_two_players, function(req, res) {
-    game_id = req.params.id;
-    player_id = req.params.pid;
+    var game_id = req.params.id;
+    var player_id = req.params.pid;
 
-    chess = games[game_id].game;
-    player1 = games[game_id].player1;
-    player2 = games[game_id].player2;
-    color = player1.id === player_id ? player1.color : player2.color;
+    var chess = games[game_id].game;
+    var player1 = games[game_id].player1;
+    var player2 = games[game_id].player2;
+    var color = player1.id === player_id ? player1.color : player2.color;
     if (chess.turn() == color) {
         stockfish.bestmove(chess.fen(), 20, function(best_move) {
             res.status(200).json({bestmove: best_move});
@@ -219,13 +226,13 @@ app.get('/game/:id/player/:pid/bestmove', validate_gid, validate_pid,
 // GET is it this players turn?
 app.get('/game/:id/player/:pid/turn', validate_gid, validate_pid, 
         validate_two_players, function(req, res) {
-    game_id = req.params.id;
-    player_id = req.params.pid;
+    var game_id = req.params.id;
+    var player_id = req.params.pid;
 
-    chess = games[game_id].game;
-    player1 = games[game_id].player1;
-    player2 = games[game_id].player2;
-    color = player1.id === player_id ? player1.color : player2.color;
+    var chess = games[game_id].game;
+    var player1 = games[game_id].player1;
+    var player2 = games[game_id].player2;
+    var color = player1.id === player_id ? player1.color : player2.color;
     if (chess.turn() == color) {
         res.status(200).json({turn: true});
         return;
@@ -251,20 +258,46 @@ function find_match() {
 
 // GET games
 app.get('/games', function(req, res) {
-    all_games = [];
+    var all_games = [];
     for (var id in games) {
         all_games.push(games[id]);
     }
     res.status(200).json(all_games);
 });
 
-//-----------------------------------------------
-// /games-needing-opponent
-//-----------------------------------------------
+// GET games currently being played
+app.get('/games/in-progress', function(req, res) {
+    var games_in_play = [];
+    for (var id in games) {
+        if (games[id].result === IN_PROGRESS)
+          games_in_play.push(games[id]);
+    }
+    res.status(200).json(games_in_play);
+});
+
+// GET games that resulted in checkmate
+app.get('/games/in-checkmate', function(req, res) {
+    var games_won = [];
+    for (var id in games) {
+        if (games[id].result === WHITE_WIN || games[id].result === BLACK_WIN)
+          games_won.push(games[id]);
+    }
+    res.status(200).json(games_won);
+});
+
+// GET games that resulted in draw
+app.get('/games/in-draw', function(req, res) {
+    var games_draw = [];
+    for (var id in games) {
+        if (games[id].result === DRAW)
+          games_draw.push(games[id]);
+    }
+    res.status(200).json(games_draw);
+});
 
 // GET games-needing-opponent
-app.get('/games-needing-opponent', function(req, res) {
-    games_needing_opponent = [];
+app.get('/games/needing-opponent', function(req, res) {
+    var games_needing_opponent = [];
     for (var id in games) {
         if (!games[id].hasOwnProperty('player2')) {
             games_needing_opponent.push(games[id]);
@@ -273,16 +306,12 @@ app.get('/games-needing-opponent', function(req, res) {
     res.status(200).json(games_needing_opponent);
 });
 
-//-----------------------------------------------
-// /games-needing-opponent-iter
-//-----------------------------------------------
-
 // iterator version of GET games-needing-opponent.
 // resource constrained clients can use this to get only one game 
 // at a time by iterating through :idx until getting an error
-app.get('/games-needing-opponent-iter/:idx', function(req, res) {
-    idx = parseInt(req.params.idx, 10);
-    games_needing_opponent = [];
+app.get('/games/needing-opponent/:idx', function(req, res) {
+    var idx = parseInt(req.params.idx, 10);
+    var games_needing_opponent = [];
     for (var id in games) {
         if (!games[id].hasOwnProperty('player2')) {
             games_needing_opponent.push(games[id]);
@@ -298,27 +327,11 @@ app.get('/games-needing-opponent-iter/:idx', function(req, res) {
 
 
 //-----------------------------------------------
-// /games-in-play
-//-----------------------------------------------
-
-// GET games-in-play
-app.get('/games-in-play', function(req, res) {
-    games_in_play = [];
-    for (var id in games) {
-        if (games[id].hasOwnProperty('player2')) {
-            games_in_play.push(games[id]);
-        }
-    }
-    res.status(200).json(games_in_play);
-});
-
-
-//-----------------------------------------------
 // HELPER FUNCTIONS
 //-----------------------------------------------
 
 String.prototype.format = function() {
-  a = this;
+  var a = this;
   for (k in arguments) {
     a = a.replace("{" + k + "}", arguments[k])
   }
@@ -334,7 +347,7 @@ function replacer(key, value) {
 }
 
 function console_log(message) {
-    timestamp = (new Date()).toISOString();
+    var timestamp = (new Date()).toISOString();
     console.log("[%s] %s", timestamp, message);
 }
 
@@ -342,20 +355,20 @@ function console_log(message) {
 // probably need to use key based on unique device id (MAC, IP, etc.)
 // in reality this is not for security but rather uniqeness
 function gen_id() {
-    key = "You're a wizard Harry...";
+    var key = "You're a wizard Harry...";
     var now  = Date.now().valueOf().toString();
     var rand = Math.random().toString();
-    id = crypto.createHmac('sha1', key).update(now + rand).digest('hex');
+    var id = crypto.createHmac('sha1', key).update(now + rand).digest('hex');
     return id;
 }
 
 function process_end_game(game) {
-    chess = game.game;
+    var chess = game.game;
     if (chess.game_over()) {
         if (chess.in_checkmate()) {
-            game.result = chess.turn() === 'w' ? '0-1' : '1-0'; // 0-1 == black won, 1-0 == white won (pgn)
+            game.result = chess.turn() === 'w' ? BLACK_WIN : WHITE_WIN;
         } else if (chess.in_draw() || chess.in_stalemate() || chess.in_threefold_repetition()) {
-            game.result = '1/2-1/2'; // draw (pgn)
+            game.result = DRAW; // draw (pgn)
         }
     }
 }
@@ -374,8 +387,8 @@ function valid_game(game_id) {
 
 function valid_player(game_id, player_id) {
     if (valid_game(game_id)) {
-        player1 = games[game_id].player1;
-        player2 = games[game_id].player2;
+        var player1 = games[game_id].player1;
+        var player2 = games[game_id].player2;
         if ((player1 && player_id === player1.id) || 
             (player2 && player_id === player2.id)) {
             return true;
@@ -385,8 +398,8 @@ function valid_player(game_id, player_id) {
 }
 
 function both_players_ready(game_id) {
-    player1 = games[game_id].player1;
-    player2 = games[game_id].player2;
+    var player1 = games[game_id].player1;
+    var player2 = games[game_id].player2;
     if (player1 && player2) {
         return true;
     }
@@ -398,7 +411,7 @@ function both_players_ready(game_id) {
 //-----------------------------------------------
 
 function validate_two_players(req, res, next) {
-    game_id = req.params.id;
+    var game_id = req.params.id;
     if (!both_players_ready(game_id)) {
         res.status(200).json({error: "need two players"});
         next('route');
@@ -408,8 +421,8 @@ function validate_two_players(req, res, next) {
 }
 
 function validate_pid(req, res, next) {
-    game_id = req.params.id;
-    player_id = req.params.pid;
+    var game_id = req.params.id;
+    var player_id = req.params.pid;
     if (!valid_player(game_id, player_id)) {
         res.status(404).json({error: "player not in game"});
         next('route');
@@ -419,7 +432,7 @@ function validate_pid(req, res, next) {
 }
 
 function validate_gid(req, res, next) {
-    game_id = req.params.id;
+    var game_id = req.params.id;
     if (!valid_game(game_id)) {
         res.status(404).json({error: "game not found"});
         next('route');
@@ -458,7 +471,7 @@ function validate_join_game(req, res, next) {
 // register device, 
 app.get('/reg', function(req, res) {
     if (players.length < 2) {
-        player_id = gen_id();
+        var player_id = gen_id();
         res.status(200).json({id: player_id});
         players.push(player_id);
         console.log("player %s has joined", player_id);
