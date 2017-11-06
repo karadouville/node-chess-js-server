@@ -67,11 +67,8 @@ if games.ok:
             exit()
         turn = requests.get('{}/game/{}/player/{}/turn'.format(server, game_id, player_id))
         if turn.ok:
-            json_print(turn.json())
             if turn.json().get('turn'):
                 make_best_move(game_id, player_id)
-            else:
-                print("waiting...")
         else:
             print(turn.status_code)
             print(turn.reason)
