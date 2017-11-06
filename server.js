@@ -160,7 +160,8 @@ app.get('/game/:id/last-move', validate_gid, function(req, res) {
     }
 
     var last_move = history[history.length-1];
-    res.status(200).json({last_move: last_move.from + last_move.to});
+    augment_move(last_move);
+    res.status(200).json(last_move);
 });
 
 // GET game fen
@@ -190,6 +191,7 @@ app.post('/game/:id/player/:pid/move', validate_gid, validate_pid,
         var move = chess.move(req.body.move, {sloppy: true}); // need sloppy for algebraic notation
         process_end_game(games[game_id]);
         if (move) {
+            augment_move(move, games[game_id]);
             res.status(200).json(move); // send back move
             games[game_id].last_move = Date.now();
             console.log(chess.ascii());
@@ -372,6 +374,25 @@ function process_end_game(game) {
             game.result = DRAW; // draw (pgn)
         }
     }
+}
+
+function augment_move(move, game) {
+    if (!move)
+        return;
+
+    if (move.flags.includes('k')) { // kingside castling
+        move.extra_from = (move.color === 'w') ? 'h1' : 'h8';
+        move.extra_to   = (move.color === 'w') ? 'f1' : 'f8';
+    } else if (move.flags.includes('q')) { // queenside castling
+        move.extra_from = (move.color === 'w') ? 'a1' : 'a8';
+        move.extra_from = (move.color === 'w') ? 'd1' : 'd8';
+    } else if (move.flags.includes('e')) { // en passant capture
+        move.en_passant = game.history()[game.history().length-2];
+    }
+
+    move.move = move.from + move.to; // add long alebraic move
+    if (move.extra_from && move_extra_to)
+        move.extra_move = move.extra_from + move.extra_to
 }
 
 function create_player(player_type, color) {
