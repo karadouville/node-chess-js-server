@@ -1,0 +1,104 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="board/css/chessboard-0.3.0.css" />
+    <script
+       src="https://code.jquery.com/jquery-2.2.4.min.js"
+       integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="
+       crossorigin="anonymous"></script>
+    <script src="board/js/chessboard-0.3.0.min.js"></script>
+    <script>
+
+      var board = null;
+      var swapp = true;
+      function updateBoardPosition(fenString) {
+        board.position(fenString);
+       
+        // getNextTurn();
+      }; 
+      function boardButtonClick() {
+        $.ajax({
+          method: "GET",
+          url: "/games/needing-opponent",
+        }).done(function( msg ) {
+          console.log(msg);
+          updateGamestate(msg);
+        });
+      }
+
+      function aiButtonClick() {
+        $.ajax({
+          method: "GET",
+          url: "/games/needing-opponent",
+        }).done(function( msg ) {
+          console.log(msg);
+          startAIGame(msg);
+        });
+      }
+
+      function aiaiButtonClick() {
+        $.ajax({
+          method: "GET",
+          url: "/games/needing-opponent",
+        }).done(function( msg ) {
+          console.log(msg);
+          
+          // start game as AI
+          startAIGame();
+          // ask for AI opponent
+          // start game cycle
+
+          updateBoardPosition(msg);
+        });
+      }
+
+      function startAIGame() {
+        $.ajax({
+          method: "GET",
+          url: "/games/needing-opponent",
+        }).done(function( msg ) {
+          //check that get is okay, if not create game
+
+
+          
+          // start game as AI
+          createAIGame();
+          // ask for AI opponent
+          // start game cycle
+
+          
+        });
+      }
+
+      function createAIGame() {
+        $.ajax({
+          method: "POST",
+          url: "/game",
+          data: { "player_type":"ai"}
+        }).done(function( msg ) {
+          //check that get is okay, if not create game
+
+
+    
+        });
+      }
+
+
+      window.onload = function() {
+          board = ChessBoard('board', 'start');
+
+          board.start();
+
+          
+      }
+      </script>
+  </head>
+  <body>
+    <H3> Let's play a game of chess</H3>
+    <p> Click a button to begin </p>
+    <div id="board" style="width: 400px"></div>
+    <button onclick=aiButtonClick()>Play against AI</button>
+    <button onclick=boardButtonClick()>Play against board</button>
+    <button onclick=aiaiButtonClick()>Watch AI vs AI</button>
+
+  </body>
+</html>

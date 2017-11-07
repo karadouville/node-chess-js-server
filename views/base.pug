@@ -1,0 +1,17 @@
+html
+  head
+    include includes/head.pug
+  body
+    h1 Welcome to AKKA Chess!
+    p Let's play!
+    form(action="/ui")
+      p Select a game you'd like to play, or create a new one
+      select(name=game) Current Games
+      for game in games
+        option(value=game.id) 
+      button Create Game
+      select(name="Player Type")
+        option(value="ai") AI
+        option(value="human") Human
+      
+      

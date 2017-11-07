@@ -6,9 +6,15 @@ const Chess = require('./node_modules/chess.js/chess.js').Chess;
 const net = require('net');
 const crypto = require('crypto');
 const stockfish = require('./stockfish_wrapper.js');
+const path = require('path');
+const pug = require('pug');
+
 
 app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
 app.set('json replacer', replacer);
+app.set('views', './views');
+app.set('view engine', 'pug');
 
 //-----------------------------------------------
 // GLOBALS (use db later)
@@ -30,7 +36,7 @@ const BLACK_WIN = '0-1';
 //-----------------------------------------------
 
 app.get('/', function(req, res) {
-    res.redirect('/games');
+    res.render('welcome', {games : games, main: "scripts/welcome.js"});
 });
 
 //-----------------------------------------------
@@ -80,7 +86,48 @@ app.post('/game', validate_create_game, function(req, res) {
     console_log("game {0} created by {1}".format(game.id, game.player1.id));
 });
 
+
 // GET game
+app.get('/setup', function(req, res, next) {
+    var params = {};
+    var player_type = req.query.ptype;
+    if(req.query.game) { // selected a game
+        if(games[req.query.game]) {
+            var game = games[req.query.game];
+            params.gameid = game.id
+            params.ptype = req.query.ptype
+            game.player2 = create_player(player_type, 'b');
+            params.playerid = game.player2.id
+            params.user = "b";
+            game.result = "*";
+            console.log("player %s joined game %s", params.playerid, game.id);
+        } else {
+            res.status(301).send("game not found");
+        }
+    } else { // create a game
+        var game = {
+            id : gen_id(),
+            created : Date.now(),
+            game : new Chess(),
+            player1 : create_player(player_type, 'w'),
+            result : "?", // waiting
+        }
+        games[game.id] = game;
+        params.gameid = game.id;
+        params.user = "w";
+        params.ptype = req.query.ptype
+        params.playerid = game.player1.id
+
+        console_log("game {0} created by {1}".format(game.id, game.player1.id));
+    }
+    var queryParams = serialize(params);
+    res.redirect('/ui?' + queryParams);
+});
+
+app.get('/ui', function(req, res, next){
+    res.render('ui', {main: "scripts/ui.js"});
+});
+
 app.get('/game/:id', validate_gid, function(req, res) {
     var game_id = req.params.id;
     res.status(200).json(games[game_id]);
@@ -132,8 +179,7 @@ app.get('/game/:id/game-over', validate_gid, function(req, res) {
 // GET game result (win, draw, etc.)
 app.get('/game/:id/result', validate_gid, function(req, res) {
     var game_id = req.params.id;
-    var result = games[game_id].result ? games[game_id].result : null;
-    res.status(200).json({result: result});
+    res.status(200).json({result: games[game_id].result});
 });
 
 // GET player object of player who's turn it is
@@ -155,19 +201,18 @@ app.get('/game/:id/last-move', validate_gid, function(req, res) {
     var history = games[game_id].game.history({verbose: true});
 
     if (history.length == 0) {
-        res.status(200).json({error: "no moves"});
+        res.status(404).json({error: "no moves"});
         return;
     }
 
     var last_move = history[history.length-1];
-    augment_move(last_move);
-    res.status(200).json(last_move);
+    res.status(200).json({last_move: last_move.from + last_move.to});
 });
 
 // GET game fen
 app.get('/game/:id/fen', validate_gid, function(req, res) {
     var game_id = req.params.id;
-    res.status(200).json({fen: games[game_id].game.fen()});
+    res.status(200).json(games[game_id].game.fen());
 });
 
 // POST move by player to game
@@ -177,6 +222,8 @@ app.post('/game/:id/player/:pid/move', validate_gid, validate_pid,
     var game_id = req.params.id;
     var player_id = req.params.pid;
 
+    console.log(req.body.move);
+    
     var chess =   games[game_id].game;
     var player1 = games[game_id].player1;
     var player2 = games[game_id].player2;
@@ -190,15 +237,11 @@ app.post('/game/:id/player/:pid/move', validate_gid, validate_pid,
     if (chess.turn() == color) {
         var move = chess.move(req.body.move, {sloppy: true}); // need sloppy for algebraic notation
         process_end_game(games[game_id]);
-        if (move) {
-            augment_move(move, games[game_id]);
-            res.status(200).json(move); // send back move
-            games[game_id].last_move = Date.now();
-            console.log(chess.ascii());
-            return;
-        }
-
-        res.status(200).json({error: "invalid move"});
+        // we won't check to see if the move was correct or not. 
+        // Just send back the game state after the move was made.
+        res.status(200).json(games[game_id]); // send back move
+        games[game_id].last_move = Date.now();
+        console.log(chess.ascii());
         return;
     }
 
@@ -216,14 +259,8 @@ app.get('/game/:id/player/:pid/bestmove', validate_gid, validate_pid,
     var player2 = games[game_id].player2;
     var color = player1.id === player_id ? player1.color : player2.color;
     if (chess.turn() == color) {
-        var moves = chess.moves({verbose:true});
-        var moves_dict = {};
-        for (i=0; i< moves.length; i++) {
-            moves_dict[moves[i].from + moves[i].to] = moves[i];
-        }
         stockfish.bestmove(chess.fen(), 20, function(best_move) {
-            augment_move(moves_dict[best_move], chess);
-            res.status(200).json(moves_dict[best_move]);
+            res.status(200).json({bestmove: best_move});
         });
 
         return;
@@ -260,7 +297,15 @@ function find_match() {
     }
 }
 */
-
+app.post('/test', function(req, res, next) {
+    console.log(req.body);
+    if(req.body.this) {
+        res.send(200);    
+    } else {
+        res.send(300);
+    }
+    
+})
 //-----------------------------------------------
 // /games
 //-----------------------------------------------
@@ -382,25 +427,6 @@ function process_end_game(game) {
     }
 }
 
-function augment_move(move, game) {
-    if (!move)
-        return;
-
-    if (move.flags.includes('k')) { // kingside castling
-        move.extra_from = (move.color === 'w') ? 'h1' : 'h8';
-        move.extra_to   = (move.color === 'w') ? 'f1' : 'f8';
-    } else if (move.flags.includes('q')) { // queenside castling
-        move.extra_from = (move.color === 'w') ? 'a1' : 'a8';
-        move.extra_from = (move.color === 'w') ? 'd1' : 'd8';
-    } else if (move.flags.includes('e')) { // en passant capture
-        move.en_passant = game.history()[game.history().length-2];
-    }
-
-    move.move = move.from + move.to; // add long alebraic move
-    if (move.extra_from && move.extra_to)
-        move.extra_move = move.extra_from + move.extra_to
-}
-
 function create_player(player_type, color) {
     if (player_type === 'ai')
         return {id: gen_id(), color: color, type: 'ai'};
@@ -452,7 +478,7 @@ function validate_pid(req, res, next) {
     var game_id = req.params.id;
     var player_id = req.params.pid;
     if (!valid_player(game_id, player_id)) {
-        res.status(404).json({error: "player not in game"});
+        res.status(302).json({error: "player not in game"});
         next('route');
         return;
     }
@@ -462,7 +488,7 @@ function validate_pid(req, res, next) {
 function validate_gid(req, res, next) {
     var game_id = req.params.id;
     if (!valid_game(game_id)) {
-        res.status(404).json({error: "game not found"});
+        res.status(303).json({error: "game not found"});
         next('route');
         return;
     }
@@ -471,7 +497,8 @@ function validate_gid(req, res, next) {
 
 function validate_move(req, res, next) {
     if (!req.body.move) {
-        res.status(200).json({error: "move required"});
+        console.log(req)
+        res.status(301).json({error: "move required"});
         next('route');
         return;
     }
@@ -490,6 +517,15 @@ function validate_create_game(req, res, next) {
 // same as validate_create_game (for now)
 function validate_join_game(req, res, next) {
     validate_create_game(req, res, next);
+}
+
+serialize = function(obj) {
+  var str = [];
+  for(var p in obj)
+    if (obj.hasOwnProperty(p)) {
+      str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
+    }
+  return str.join("&");
 }
 
 //-----------------------------------------------
@@ -519,8 +555,6 @@ var server = app.listen(3000, "0.0.0.0", function() {
     
     console_log("rest api server listening at http://{0}:{1}".format(host, port));
 });
-
-module.exports = server;
 
 /*
 var telnet_server = net.createServer(function(socket) {
