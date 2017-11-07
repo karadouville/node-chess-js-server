@@ -22,7 +22,7 @@ def make_best_move(gid, pid):
         print("cannot get best move")
         return
     
-    bestmove = b.json()['bestmove']
+    bestmove = b.json()['move']
     print("bestmove={}".format(bestmove));
     move_res = post_json('{}/game/{}/player/{}/move'.format(server, gid, pid), {"move": str(bestmove)})
     if move_res:

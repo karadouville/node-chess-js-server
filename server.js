@@ -216,8 +216,14 @@ app.get('/game/:id/player/:pid/bestmove', validate_gid, validate_pid,
     var player2 = games[game_id].player2;
     var color = player1.id === player_id ? player1.color : player2.color;
     if (chess.turn() == color) {
+        var moves = chess.moves({verbose:true});
+        var moves_dict = {};
+        for (i=0; i< moves.length; i++) {
+            moves_dict[moves[i].from + moves[i].to] = moves[i];
+        }
         stockfish.bestmove(chess.fen(), 20, function(best_move) {
-            res.status(200).json({bestmove: best_move});
+            augment_move(moves_dict[best_move], chess);
+            res.status(200).json(moves_dict[best_move]);
         });
 
         return;
@@ -391,7 +397,7 @@ function augment_move(move, game) {
     }
 
     move.move = move.from + move.to; // add long alebraic move
-    if (move.extra_from && move_extra_to)
+    if (move.extra_from && move.extra_to)
         move.extra_move = move.extra_from + move.extra_to
 }
 
